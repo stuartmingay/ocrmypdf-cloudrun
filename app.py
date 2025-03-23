@@ -1,41 +1,60 @@
 from flask import Flask, request, send_file
 import subprocess
 import os
+import logging
+logging.basicConfig(level=logging.INFO)
 
 app = Flask(__name__)
 
 @app.route('/ocr', methods=['POST'])
 def ocr_pdf():
+    logging.info("Received request to /ocr")
+
     if 'file' not in request.files:
+        logging.error("No PDF file uploaded")
         return {"error": "No PDF file uploaded"}, 400
 
     pdf_file = request.files['file']
     input_path = "input.pdf"
     output_path = "output.pdf"
     pdf_file.save(input_path)
+    logging.info(f"Saved input PDF to {input_path}")
 
     if 'hocr' in request.files:
         hocr_file = request.files['hocr']
         hocr_path = "input.hocr"
         hocr_file.save(hocr_path)
+        logging.info(f"Saved input HOCR to {hocr_path}")
 
-        # Use HOCR sidecar
-        subprocess.run([
-            "ocrmypdf",
-            "--output-type", "pdfa",
-            "--skip-text",
-            "--sidecar", hocr_path,
-            input_path, output_path
-        ])
+        try:
+            subprocess.run([
+                "ocrmypdf",
+                "--output-type", "pdfa",
+                "--skip-text",
+                "--sidecar", hocr_path,
+                input_path, output_path
+            ], check=True)
+        except subprocess.CalledProcessError as e:
+            logging.error(f"OCRmyPDF (HOCR) failed: {e}")
+            return {"error": "OCRmyPDF failed with HOCR input"}, 500
     else:
-        # Fallback to normal OCR
-        subprocess.run([
-            "ocrmypdf",
-            "--output-type", "pdfa",
-            input_path, output_path
-        ])
+        logging.info("No HOCR file found — running default OCR")
+        try:
+            subprocess.run([
+                "ocrmypdf",
+                "--output-type", "pdfa",
+                input_path, output_path
+            ], check=True)
+        except subprocess.CalledProcessError as e:
+            logging.error(f"OCRmyPDF (default) failed: {e}")
+            return {"error": "OCRmyPDF failed on default run"}, 500
 
+    logging.info("Returning final PDF")
     return send_file(output_path, as_attachment=True, mimetype='application/pdf')
+
+
+
+
 
 @app.route('/convert_hocr', methods=['POST'])
 def convert_hocr():
