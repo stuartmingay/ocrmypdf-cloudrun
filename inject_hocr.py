@@ -7,7 +7,7 @@ def hocr_to_pdf(png_path, hocr_path, output_pdf_path):
     img = Image.open(png_path)
     img_width, img_height = img.size
 
-    # Assume image and HOCR were generated from a 300 DPI source
+    # Assume image was created at 300 DPI
     dpi = 300
     width_in_pts = img_width * 72 / dpi
     height_in_pts = img_height * 72 / dpi
@@ -20,7 +20,7 @@ def hocr_to_pdf(png_path, hocr_path, output_pdf_path):
         filename=png_path
     )
 
-    # Parse HOCR and extract page bbox
+    # Parse HOCR and extract bbox for scaling
     tree = html.parse(hocr_path)
     root = tree.getroot()
     page_div = root.xpath('//div[@class="ocr_page"]')
@@ -28,8 +28,6 @@ def hocr_to_pdf(png_path, hocr_path, output_pdf_path):
         raise ValueError("No ocr_page found in HOCR")
 
     page_title = page_div[0].attrib.get("title", "")
-
-    # Extract bbox if it exists
     bbox_parts = [x.strip() for x in page_title.split(";") if "bbox" in x]
 
     if bbox_parts:
@@ -51,19 +49,19 @@ def hocr_to_pdf(png_path, hocr_path, output_pdf_path):
         hocr_width = img_width
         hocr_height = img_height
 
-    # Compute scaling from HOCR/image pixels to PDF points
+    # Compute scaling from image pixels to PDF points
     scale_x = width_in_pts / hocr_width
     scale_y = height_in_pts / hocr_height
 
-    # Now insert each word
     for span in tree.xpath('//span[@class="ocrx_word"]'):
         title = span.attrib.get("title", "")
         if "bbox" not in title:
             continue
-        parts = title.split(";")
-        bbox_part = [p for p in parts if "bbox" in p]
+
+        bbox_part = [p for p in title.split(";") if "bbox" in p]
         if not bbox_part:
             continue
+
         coords = bbox_part[0].split()[1:]
         x0, y0, x1, y1 = map(int, coords)
 
@@ -71,18 +69,22 @@ def hocr_to_pdf(png_path, hocr_path, output_pdf_path):
         if not word.strip():
             continue
 
-        # Apply scaling to fit PDF point space
+        # Apply scaling to bbox
         rect = fitz.Rect(
             x0 * scale_x, y0 * scale_y,
             x1 * scale_x, y1 * scale_y
         )
 
-        # Add invisible text
+        # Dynamically calculate font size to fit the full height of the bbox
+        bbox_height = rect.y1 - rect.y0
+        fontsize = bbox_height * 0.95  # Slight padding
+
+        # Insert invisible text
         page.insert_textbox(
             rect, word,
-            fontsize=8,
-            fontname="helv",
-            render_mode=3,
+            fontsize=fontsize,
+            fontname="helv",  # You could try "Courier" or "Times-Roman" if spacing is still off
+            render_mode=3,    # Invisible text
             color=(1, 1, 1),
             overlay=True
         )
