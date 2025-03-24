@@ -2,16 +2,15 @@ FROM ubuntu:22.04
 
 WORKDIR /app
 
-# Install dependencies
+# Install dependencies and hocr-pdf from source
 RUN apt-get update && apt-get install -y \
     python3 python3-pip python3-venv \
-    hocr-tools imagemagick \
-    tesseract-ocr \
-    && rm -rf /var/lib/apt/lists/*
+    git imagemagick tesseract-ocr \
+ && rm -rf /var/lib/apt/lists/* \
+ && git clone https://github.com/tmbdev/hocr-tools.git /hocr-tools \
+ && cd /hocr-tools && python3 setup.py install
 
-# Optional: remove ocrmypdf from here if it was included before
-
-# Set up Python virtual environment
+# Set up virtual environment for Flask and related Python packages
 RUN python3 -m venv /app/venv && \
     /app/venv/bin/pip install --no-cache-dir flask requests lxml
 
