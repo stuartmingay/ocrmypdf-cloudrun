@@ -9,18 +9,9 @@ def hocr_to_pdf(png_path, hocr_path, output_pdf_path):
 
     doc = fitz.open()
 
-    # Assume image is 300 DPI, so convert image pixels to PDF points (1 pt = 1/72 inch)
-    dpi = 300
-    inch_per_pt = 1 / 72
-    width_in_pts = img_width * (72 / dpi)
-    height_in_pts = img_height * (72 / dpi)
+    page = doc.new_page(width=img_width, height=img_height)
 
-    page = doc.new_page(width=width_in_pts, height=height_in_pts)
-
-    page.insert_image(
-        fitz.Rect(0, 0, width_in_pts, height_in_pts),
-        filename=png_path
-    )
+    page.insert_image(fitz.Rect(0, 0, img_width, img_height), filename=png_path)
 
     # Parse HOCR and extract page bbox
     tree = html.parse(hocr_path)
@@ -54,8 +45,8 @@ def hocr_to_pdf(png_path, hocr_path, output_pdf_path):
         hocr_height = img_height
 
     # Compute scaling factors
-    scale_x = width_in_pts / hocr_width
-    scale_y = height_in_pts / hocr_height
+    scale_x = img_width / hocr_width
+    scale_y = img_height / hocr_height
 
     # Now insert each word
     for span in tree.xpath('//span[@class="ocrx_word"]'):
