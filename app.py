@@ -10,48 +10,34 @@ app = Flask(__name__)
 def ocr_pdf():
     logging.info("Received request to /ocr")
 
-    if 'file' not in request.files:
-        logging.error("No PDF file uploaded")
-        return {"error": "No PDF file uploaded"}, 400
+    if 'file' not in request.files or 'hocr' not in request.files:
+        logging.error("Missing file(s): need both PNG image and HOCR")
+        return {"error": "PNG image and HOCR file are required"}, 400
 
-    pdf_file = request.files['file']
-    input_path = "input.pdf"
-    output_path = "output.pdf"
-    pdf_file.save(input_path)
-    logging.info(f"Saved input PDF to {input_path}")
+    image_file = request.files['file']
+    hocr_file = request.files['hocr']
 
-    if 'hocr' in request.files:
-        hocr_file = request.files['hocr']
-        hocr_path = "input.hocr"
-        hocr_file.save(hocr_path)
-        logging.info(f"Saved input HOCR to {hocr_path}")
+    image_path = "input.png"
+    hocr_path = "input.hocr"
+    output_pdf_path = "output.pdf"
 
-        try:
-            subprocess.run([
-                "ocrmypdf",
-                "--output-type", "pdfa",
-                "--skip-text",
-                "--sidecar", hocr_path,
-                input_path, output_path
-            ], check=True)
-        except subprocess.CalledProcessError as e:
-            logging.error(f"OCRmyPDF (HOCR) failed: {e}")
-            return {"error": "OCRmyPDF failed with HOCR input"}, 500
-    else:
-        logging.info("No HOCR file found — running default OCR")
-        try:
-            subprocess.run([
-                "ocrmypdf",
-                "--output-type", "pdfa",
-                input_path, output_path
-            ], check=True)
-        except subprocess.CalledProcessError as e:
-            logging.error(f"OCRmyPDF (default) failed: {e}")
-            return {"error": "OCRmyPDF failed on default run"}, 500
+    image_file.save(image_path)
+    hocr_file.save(hocr_path)
+
+    try:
+        with open(output_pdf_path, "wb") as output_pdf:
+            subprocess.run(
+                ["hocr-pdf", ".", "-i", image_path],
+                stdin=open(hocr_path, "rb"),
+                stdout=output_pdf,
+                check=True
+            )
+    except subprocess.CalledProcessError as e:
+        logging.error(f"hocr-pdf failed: {e}")
+        return {"error": "HOCR-PDF failed"}, 500
 
     logging.info("Returning final PDF")
-    return send_file(output_path, as_attachment=True, mimetype='application/pdf')
-
+    return send_file(output_pdf_path, as_attachment=True, mimetype='application/pdf')
 
 
 

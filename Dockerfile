@@ -1,23 +1,23 @@
 FROM ubuntu:22.04
 
-# Set working directory in container
-WORKDIR /ocrmypdf-cloudrun
+WORKDIR /app
 
-# Install system dependencies and OCR tools
+# Install dependencies
 RUN apt-get update && apt-get install -y \
-    python3 python3-pip python3-venv ocrmypdf tesseract-ocr && \
-    rm -rf /var/lib/apt/lists/*
+    python3 python3-pip python3-venv \
+    hocr-tools imagemagick \
+    tesseract-ocr \
+    && rm -rf /var/lib/apt/lists/*
 
-# Set up virtual environment and install Python packages
-RUN python3 -m venv /ocrmypdf-cloudrun/venv && \
-    /ocrmypdf-cloudrun/venv/bin/pip install --no-cache-dir flask requests lxml
+# Optional: remove ocrmypdf from here if it was included before
 
-# Set environment variable so virtualenv is active by default
-ENV PATH="/ocrmypdf-cloudrun/venv/bin:$PATH"
+# Set up Python virtual environment
+RUN python3 -m venv /app/venv && \
+    /app/venv/bin/pip install --no-cache-dir flask requests lxml
 
-# Copy app files into container
-COPY app.py vision_to_hocr.py ./
+ENV PATH="/app/venv/bin:$PATH"
 
-# Launch Flask app
-CMD ["/ocrmypdf-cloudrun/venv/bin/python3", "app.py"]
+COPY app.py vision_to_hocr.py /app/
+
+CMD ["python3", "/app/app.py"]
 
