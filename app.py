@@ -2,17 +2,16 @@ from flask import Flask, request, send_file
 import subprocess
 import os
 import logging
+from inject_hocr import hocr_to_pdf
+
 logging.basicConfig(level=logging.INFO)
 
 app = Flask(__name__)
 
 @app.route('/ocr', methods=['POST'])
-def ocr_pdf():
-    logging.info("Received request to /ocr")
-
+def create_pdf():
     if 'file' not in request.files or 'hocr' not in request.files:
-        logging.error("Missing file(s): need both PNG image and HOCR")
-        return {"error": "PNG image and HOCR file are required"}, 400
+        return {"error": "PNG image and HOCR file required"}, 400
 
     image_file = request.files['file']
     hocr_file = request.files['hocr']
@@ -25,21 +24,11 @@ def ocr_pdf():
     hocr_file.save(hocr_path)
 
     try:
-        with open(output_pdf_path, "wb") as output_pdf:
-            subprocess.run(
-                ["hocr-pdf", ".", "-i", image_path],
-                stdin=open(hocr_path, "rb"),
-                stdout=output_pdf,
-                check=True
-            )
-    except subprocess.CalledProcessError as e:
-        logging.error(f"hocr-pdf failed: {e}")
-        return {"error": "HOCR-PDF failed"}, 500
+        hocr_to_pdf(image_path, hocr_path, output_pdf_path)
+    except Exception as e:
+        return {"error": str(e)}, 500
 
-    logging.info("Returning final PDF")
-    return send_file(output_pdf_path, as_attachment=True, mimetype='application/pdf')
-
-
+    return send_file(output_pdf_path, mimetype='application/pdf', as_attachment=True)
 
 
 @app.route('/convert_hocr', methods=['POST'])

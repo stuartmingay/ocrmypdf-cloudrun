@@ -1,22 +1,19 @@
-FROM ubuntu:22.04
+FROM python:3.10-slim
 
 WORKDIR /app
 
-# Install dependencies and hocr-pdf from source
+# Install system dependencies required for PyMuPDF (fitz), PIL, and lxml
 RUN apt-get update && apt-get install -y \
-    python3 python3-pip python3-venv \
-    git imagemagick tesseract-ocr \
- && rm -rf /var/lib/apt/lists/* \
- && git clone https://github.com/tmbdev/hocr-tools.git /hocr-tools \
- && cd /hocr-tools && python3 setup.py install
+    libjpeg-dev libopenjp2-7 libtiff5 libpng-dev \
+    libxml2 libxslt1-dev libglib2.0-0 \
+ && rm -rf /var/lib/apt/lists/*
 
-# Set up virtual environment for Flask and related Python packages
-RUN python3 -m venv /app/venv && \
-    /app/venv/bin/pip install --no-cache-dir flask requests lxml
+# Install Python dependencies
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
 
-ENV PATH="/app/venv/bin:$PATH"
+# Copy app code
+COPY app.py inject_hocr.py vision_to_hocr.py /app/
 
-COPY app.py vision_to_hocr.py /app/
-
-CMD ["python3", "/app/app.py"]
+CMD ["python", "app.py"]
 
