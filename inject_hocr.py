@@ -80,12 +80,13 @@ def hocr_to_pdf(png_path, hocr_path, output_pdf_path):
         fontsize = bbox_height * 0.95  # Slight padding
 
         # Insert invisible text
-        page.insert_textbox(
-            rect, word,
+        page.insert_text(
+            fitz.Point(rect.x0, rect.y0 + fontsize),  # Adjust baseline
+            word,
             fontsize=fontsize,
-            fontname="helv",  # You could try "Courier" or "Times-Roman" if spacing is still off
-            render_mode=3,    # Invisible text
+            fontname="helv",
             color=(1, 1, 1),
+            render_mode=3,
             overlay=True
         )
 
