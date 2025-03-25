@@ -4,7 +4,7 @@ WORKDIR /app
 
 # Install system dependencies required for PyMuPDF (fitz), PIL, and lxml
 RUN apt-get update && apt-get install -y \
-    libjpeg-dev libopenjp2-7 libtiff5 libpng-dev \
+    libjpeg-dev libopenjp2-7 libtiff-dev libpng-dev \
     libxml2 libxslt1-dev libglib2.0-0 \
  && rm -rf /var/lib/apt/lists/*
 
