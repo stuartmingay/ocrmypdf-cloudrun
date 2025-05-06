@@ -1,6 +1,7 @@
 import os
 import logging
 import subprocess
+import json
 from flask import Flask, request, send_file, jsonify
 from google.cloud import storage
 from inject_hocr import hocr_to_pdf
