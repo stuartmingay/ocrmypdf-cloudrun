@@ -80,6 +80,39 @@ def create_pdf():
         logging.error(f"Unexpected error: {ex}")
         return jsonify({"error": str(ex)}), 500
 
+@app.route('/converthocr', methods=['POST'])
+def convert_hocr():
+    logging.info("Received request to /converthocr")
+
+    image_path = "image.png"
+    hocr_path = "input.hocr"
+    output_path = "output.pdf"
+
+    try:
+        # Upload image (PNG or JPEG)
+        if 'image' not in request.files:
+            return jsonify({"error": "Missing image file"}), 400
+        image_file = request.files['image']
+        image_file.save(image_path)
+        logging.info("Image uploaded")
+
+        # Upload HOCR
+        if 'hocr' not in request.files:
+            return jsonify({"error": "Missing hOCR file"}), 400
+        hocr_file = request.files['hocr']
+        hocr_file.save(hocr_path)
+        logging.info("HOCR uploaded")
+
+        # Run HOCR injection
+        hocr_to_pdf(image_path, hocr_path, output_path)
+        logging.info("Generated searchable PDF with HOCR overlay")
+
+        return send_file(output_path, as_attachment=True, mimetype='application/pdf')
+
+    except Exception as ex:
+        logging.error(f"Error in /converthocr: {ex}")
+        return jsonify({"error": str(ex)}), 500
+
 if __name__ == '__main__':
     port = int(os.environ.get("PORT", 8080))
     app.run(host='0.0.0.0', port=port)
