@@ -83,19 +83,28 @@ def create_pdf():
 def convert_hocr():
     logging.info("Received request to /converthocr")
     try:
-        if not request.is_json:
-            return jsonify({"error": "Expected application/json"}), 400
+        if 'vision_json' not in request.files:
+            return jsonify({"error": "Missing vision_json file"}), 400
 
-        json_data = request.get_json()
+        vision_file = request.files['vision_json']
+        json_data = json.load(vision_file)
         hocr_output = vision_to_hocr(json_data)
 
+        # Return raw HTML or downloadable file — pick one
         return hocr_output, 200, {
             'Content-Type': 'text/html; charset=utf-8'
         }
 
+        # Optional: return as downloadable file instead
+        # response = make_response(hocr_output)
+        # response.headers.set('Content-Type', 'text/html')
+        # response.headers.set('Content-Disposition', 'attachment', filename='output.hocr')
+        # return response
+
     except Exception as ex:
         logging.error(f"Error in /converthocr: {ex}")
         return jsonify({"error": str(ex)}), 500
+
 
 if __name__ == '__main__':
     port = int(os.environ.get("PORT", 8080))
