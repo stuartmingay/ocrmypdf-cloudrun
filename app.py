@@ -4,6 +4,7 @@ import subprocess
 from flask import Flask, request, send_file, jsonify
 from google.cloud import storage
 from inject_hocr import hocr_to_pdf
+from vision_to_hocr import vision_to_hocr  # NEW
 
 logging.basicConfig(level=logging.INFO)
 app = Flask(__name__)
@@ -25,7 +26,7 @@ def create_pdf():
 
     input_path = "input.pdf"
     output_path = "output.pdf"
-    image_path = "image.png"  # Used if hocr injection is needed
+    image_path = "image.png"
     hocr_path = "input.hocr"
 
     try:
@@ -52,14 +53,12 @@ def create_pdf():
             hocr_file.save(hocr_path)
             logging.info("HOCR file uploaded")
 
-            # Convert PDF to image (PNG) for overlay
             subprocess.run([
                 "convert", "-density", "300", input_path,
                 "-background", "white", "-alpha", "remove", image_path
             ], check=True)
             logging.info("Converted PDF to PNG")
 
-            # Run HOCR injection
             hocr_to_pdf(image_path, hocr_path, output_path)
             logging.info("Generated searchable PDF with HOCR overlay")
 
@@ -83,31 +82,16 @@ def create_pdf():
 @app.route('/converthocr', methods=['POST'])
 def convert_hocr():
     logging.info("Received request to /converthocr")
-
-    image_path = "image.png"
-    hocr_path = "input.hocr"
-    output_path = "output.pdf"
-
     try:
-        # Upload image (PNG or JPEG)
-        if 'image' not in request.files:
-            return jsonify({"error": "Missing image file"}), 400
-        image_file = request.files['image']
-        image_file.save(image_path)
-        logging.info("Image uploaded")
+        if not request.is_json:
+            return jsonify({"error": "Expected application/json"}), 400
 
-        # Upload HOCR
-        if 'hocr' not in request.files:
-            return jsonify({"error": "Missing hOCR file"}), 400
-        hocr_file = request.files['hocr']
-        hocr_file.save(hocr_path)
-        logging.info("HOCR uploaded")
+        json_data = request.get_json()
+        hocr_output = vision_to_hocr(json_data)
 
-        # Run HOCR injection
-        hocr_to_pdf(image_path, hocr_path, output_path)
-        logging.info("Generated searchable PDF with HOCR overlay")
-
-        return send_file(output_path, as_attachment=True, mimetype='application/pdf')
+        return hocr_output, 200, {
+            'Content-Type': 'text/html; charset=utf-8'
+        }
 
     except Exception as ex:
         logging.error(f"Error in /converthocr: {ex}")
