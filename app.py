@@ -25,59 +25,33 @@ def download_from_gcs(gcs_url, local_path):
 def create_pdf():
     logging.info("Received request to /ocr")
 
-    input_path = "input.pdf"
-    output_path = "output.pdf"
     image_path = "image.png"
     hocr_path = "input.hocr"
+    output_path = "output.pdf"
 
     try:
-        # Case 1: Direct file upload
-        if 'file' in request.files:
-            pdf_file = request.files['file']
-            pdf_file.save(input_path)
-            logging.info("PDF uploaded via multipart form")
+        # Ensure image is provided
+        if 'image' not in request.files:
+            return jsonify({"error": "Missing image file"}), 400
+        image_file = request.files['image']
+        image_file.save(image_path)
+        logging.info("Saved image to image.png")
 
-        # Case 2: JSON with GCS URL
-        elif request.is_json:
-            data = request.get_json()
-            pdf_url = data.get("pdf_url")
-            if not pdf_url:
-                return jsonify({"error": "Missing pdf_url"}), 400
-            download_from_gcs(pdf_url, input_path)
+        # Ensure hOCR is provided
+        if 'hocr' not in request.files:
+            return jsonify({"error": "Missing hOCR file"}), 400
+        hocr_file = request.files['hocr']
+        hocr_file.save(hocr_path)
+        logging.info("Saved hOCR to input.hocr")
 
-        else:
-            return jsonify({"error": "No PDF provided"}), 400
-
-        # Optional: HOCR file provided
-        if 'hocr' in request.files:
-            hocr_file = request.files['hocr']
-            hocr_file.save(hocr_path)
-            logging.info("HOCR file uploaded")
-
-            subprocess.run([
-                "convert", "-density", "300", input_path,
-                "-background", "white", "-alpha", "remove", image_path
-            ], check=True)
-            logging.info("Converted PDF to PNG")
-
-            hocr_to_pdf(image_path, hocr_path, output_path)
-            logging.info("Generated searchable PDF with HOCR overlay")
-
-        else:
-            logging.info("No HOCR provided – running OCRmyPDF normally")
-            subprocess.run([
-                "ocrmypdf",
-                "--output-type", "pdfa",
-                input_path, output_path
-            ], check=True)
+        # Generate PDF with embedded HOCR text layer
+        hocr_to_pdf(image_path, hocr_path, output_path)
+        logging.info("Successfully created searchable PDF")
 
         return send_file(output_path, as_attachment=True, mimetype='application/pdf')
 
-    except subprocess.CalledProcessError as e:
-        logging.error(f"OCR or conversion failed: {e}")
-        return jsonify({"error": "OCR processing failed"}), 500
     except Exception as ex:
-        logging.error(f"Unexpected error: {ex}")
+        logging.error(f"Error in /ocr: {ex}")
         return jsonify({"error": str(ex)}), 500
 
 @app.route('/converthocr', methods=['POST'])
